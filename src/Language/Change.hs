@@ -50,12 +50,6 @@ data Change a
   | Split (Map a [([a], Env a)])
 
 
-simpleChange :: [([a], [a])] -> [Env a] -> Change a
-simpleChange = undefined
-
-splitChange :: [([a], [([a], [Env a])])] -> Change a
-splitChange = undefined
-
 testPatterns :: Ord a => [a] -> [Pattern a] -> Bool
 testPatterns list = \case
   [] -> True
