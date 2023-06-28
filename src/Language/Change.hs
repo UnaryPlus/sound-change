@@ -1,3 +1,11 @@
+{-|
+Module     : Language.Change
+Copyright  : (c) Owen Bechtel, 2023
+License    : MIT
+Maintainer : ombspring@gmail.com
+Stability  : experimental
+-}
+
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
 module Language.Change
@@ -13,25 +21,40 @@ import Data.Set (Set)
 import Data.Map (Map)
 import Data.List (find, foldl', scanl')
 
-data PSet a
-  = PSet (Set a) Bool
+-- | A finite set, or the complement of a finite set.
+data PSet a = PSet (Set a) Bool
 
+-- | Test for membership in a 'PSet'.
+--
+-- @
+-- member x (PSet set b) = 'Set.member' x set == b
+-- @
 member :: Ord a => a -> PSet a -> Bool
-member x (PSet set b) =
-  if b then Set.member x set else Set.notMember x set
+member x (PSet set b) = Set.member x set == b
 
+-- | A single component of an 'Env'.
 data Pattern a
-  = One (PSet a)
-  | Optional (PSet a)
-  | Many (PSet a)
+  = One (PSet a)      -- ^ Matches one occurrence of a 'PSet' member.
+  | Optional (PSet a) -- ^ Matches zero or one occurences of a 'PSet' member.
+  | Many (PSet a)     -- ^ Matches zero or more occurences of a 'PSet' member.
 
-data Env a
-  = Env [Pattern a] [Pattern a]
+-- | An environment in which a phoneme (or in general, a value of type @a@), might occur.
+-- An 'Env' is specified by two lists of patterns: the environment before the phoneme (in reverse order), and the environment after.
+data Env a = Env [Pattern a] [Pattern a] 
 
+-- | A sound change. 
+-- The easiest way to construct sound changes is with the quasiquoters 'sim' and 'spl' from "Language.Change.Quote",
+-- 
 data Change a
   = Simple (Map a [a]) [Env a]
   | Split (Map a [([a], Env a)])
 
+
+simpleChange :: [([a], [a])] -> [Env a] -> Change a
+simpleChange = undefined
+
+splitChange :: [([a], [([a], [Env a])])] -> Change a
+splitChange = undefined
 
 testPatterns :: Ord a => [a] -> [Pattern a] -> Bool
 testPatterns list = \case
