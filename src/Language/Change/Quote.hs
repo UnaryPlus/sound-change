@@ -25,14 +25,14 @@ import Data.List.NonEmpty (NonEmpty(..), toList)
 import Data.Data (Data)
 import Data.Void (Void)
 import Control.Monad (void)
-import Data.Char
+import Data.Char (isAlphaNum, isAsciiUpper, isSpace)
 
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..), dataToExpQ)
 import Language.Haskell.TH (Q, Exp)
 import Data.Generics.Aliases (extQ)
 
-import Language.Change
+import Language.Change (Change(..), Env(..), Pattern(..), PSet(..))
 
 type Pairing a b = NonEmpty (a, b)
 
