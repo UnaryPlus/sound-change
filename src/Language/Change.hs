@@ -43,8 +43,7 @@ data Pattern a
 data Env a = Env [Pattern a] [Pattern a] 
 
 -- | A sound change. 
--- The easiest way to construct sound changes is with the quasiquoters 'sim' and 'spl' from "Language.Change.Quote",
--- 
+-- The easiest way to construct sound changes is with the quasiquoters 'sim' and 'spl' from "Language.Change.Quote".
 data Change a
   = Simple (Map a [a]) [Env a]
   | Split (Map a [([a], Env a)])
