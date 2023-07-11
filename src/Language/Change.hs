@@ -43,12 +43,9 @@ data Pattern a
 data Env a = Env [Pattern a] [Pattern a] 
 
 -- | A sound change. 
--- The easiest way to construct sound changes is with the quasiquoters 'sim' and 'spl' from "Language.Change.Quote".
-data Change a
-  = Simple (Map a [a]) [Env a]
-  | Split (Map a [([a], Env a)])
+newtype Change a = Change (Map a [([a], Env a)])
 
-
+-- | Match a list of phonemes against a list of patterns.
 testPatterns :: Ord a => [a] -> [Pattern a] -> Bool
 testPatterns list = \case
   [] -> True
@@ -66,12 +63,13 @@ testPatterns list = \case
       testPatterns list ps
     || testPatterns list (One set : Many set : ps)
 
-
+-- | Match two lists of phonemes against an 'Env'.
 testEnv :: Ord a => [a] -> [a] -> Env a -> Bool
 testEnv left right (Env psL psR) =
   testPatterns left psL && testPatterns right psR
 
-
+-- | A helper function used by 'applyChange'.
+-- | Similar to 'map' except the first argument returns a list and has access to each element's environment.
 replace :: ([a] -> a -> [a] -> [b]) -> [a] -> [b]
 replace f = replace' []
   where
@@ -80,13 +78,8 @@ replace f = replace' []
 
 
 applyChange :: Ord a => Change a -> [a] -> [a]
-applyChange = \case
-  Simple mapping envs -> replace \left x right ->
-    case Map.lookup x mapping of
-      Just x' | any (testEnv left right) envs -> x'
-      _ -> [x]
-
-  Split mapping -> replace \left x right ->
+applyChange (Change mapping) =
+  replace \left x right ->
     case Map.lookup x mapping of
       Nothing -> [x]
       Just cs ->
