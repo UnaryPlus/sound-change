@@ -69,14 +69,14 @@ testEnv left right (Env psL psR) =
   testPatterns left psL && testPatterns right psR
 
 -- | A helper function used by 'applyChange'.
--- | Similar to 'map' except the first argument returns a list and has access to each element's environment.
+-- | Similar to 'map', except the first argument returns a list and has access to each element's environment.
 replace :: ([a] -> a -> [a] -> [b]) -> [a] -> [b]
 replace f = replace' []
   where
     replace' _ [] = []
     replace' left (x:right) = f left x right ++ replace' (x:left) right
 
-
+-- | Apply a sound change to a word.
 applyChange :: Ord a => Change a -> [a] -> [a]
 applyChange (Change mapping) =
   replace \left x right ->
@@ -87,8 +87,11 @@ applyChange (Change mapping) =
           Nothing -> [x]
           Just (x', _) -> x'
 
+-- | Apply a sequence of sound changes to a word, returning the ultimate result.
 applyChanges :: Ord a => [Change a] -> [a] -> [a]
 applyChanges cs x = foldl' (flip applyChange) x cs
 
+-- | Apply a sequence of sound changes to a word, returning a list of intermediate results.
+-- (The first element of the list is the original word, and the last element is the result after applying all changes.)
 traceChanges :: Ord a => [Change a] -> [a] -> [[a]]
 traceChanges cs x = scanl' (flip applyChange) x cs
