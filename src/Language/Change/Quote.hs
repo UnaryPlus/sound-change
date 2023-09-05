@@ -209,7 +209,23 @@ statementS = M.choice [ envSplit, other ]
         ]
 
 changeS :: Parser ChangeS
-changeS = NE.sepBy1 statementS (symbol '\n')
+changeS = NE.sepBy1 statementS (allowNewlines (symbol '\n'))
+
+parseChange :: Parser ChangeS
+parseChange = do
+  allowNewlines spaces 
+  c <- changeS 
+  allowNewlines spaces 
+  M.eof
+  return c
+
+parseChanges :: Parser (NonEmpty ChangeS)
+parseChanges = do
+  allowNewlines spaces
+  cs <- NE.sepBy1 (symbol '*' >> changeS) (allowNewlines (symbol '\n'))
+  allowNewlines spaces
+  M.eof
+  return cs
 
 initialState :: s -> M.SourcePos -> M.State s Void
 initialState input position =
@@ -229,25 +245,32 @@ initialState input position =
 
 ch :: QuasiQuoter
 ch = QuasiQuoter 
-  { quoteExp = quoteChange
+  { quoteExp = makeQuoter parseChange (varE 'convertChangeS)
   , quotePat = undefined 
   , quoteType = undefined
   , quoteDec = undefined 
   }
 
-quoteChange :: String -> TH.ExpQ
-quoteChange input = do
+chs :: QuasiQuoter
+chs = QuasiQuoter 
+  { quoteExp = makeQuoter parseChanges (appE (varE 'map) (varE 'convertChangeS))
+  , quotePat = undefined 
+  , quoteType = undefined
+  , quoteDec = undefined 
+  }
+
+makeQuoter :: (Data a) => Parser a -> TH.ExpQ -> String -> TH.ExpQ
+makeQuoter parse convert input = do
   loc <- TH.location
   let file = TH.loc_filename loc
       (line, col) = TH.loc_start loc
       state = initialState input (M.SourcePos file (M.mkPos line) (M.mkPos col))
-      parse = spaces >> (changeS <* M.eof)
   
   case snd (M.runParser' (runReaderT parse False) state) of
     Left errors -> fail (M.errorBundlePretty errors)
     Right change -> 
       let change' = dataToExpQ (const Nothing `extQ` antiquote) change
-      in appE (TH.varE 'convertChangeS) change'
+      in appE convert change'
 
 antiquote :: CharS -> Maybe TH.ExpQ
 antiquote = \case
