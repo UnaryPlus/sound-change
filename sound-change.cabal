@@ -35,6 +35,7 @@ library
     template-haskell,
     megaparsec,
     parser-combinators,
+    mtl
 
 test-suite test
   type:             exitcode-stdio-1.0
