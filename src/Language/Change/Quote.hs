@@ -23,6 +23,8 @@ import qualified Data.Set as Set
 import Data.Set (Set)
 
 import qualified Text.Megaparsec as M
+import Text.Megaparsec ((<|>))
+import qualified Text.Megaparsec.Char as MC
 import qualified Text.Megaparsec.Char.Lexer as Lexer
 import qualified Control.Monad.Combinators.NonEmpty as NE
 
@@ -110,7 +112,8 @@ data StatementS
   | EnvSplit (Pairing SoundList Rep) EnvList 
   deriving (Data)
 
-type ChangeS = NonEmpty StatementS
+newtype ChangeS = ChangeS (NonEmpty StatementS)
+  deriving (Data)
 
 type Parser = ReaderT Bool (M.Parsec Void String) -- True = allow newlines
 
@@ -123,11 +126,8 @@ isIdentifier c = isAlphaNum c || c == '_' || c == '\''
 
 spaces :: Parser ()
 spaces = ReaderT $ \allowNs ->
-  Lexer.space (if allowNs then spsN else sps) lineComment M.empty
-  where 
-    sps = void (M.takeWhile1P (Just "space") (== ' '))
-    spsN = void (M.takeWhile1P (Just "white space") isSpace)
-    lineComment = Lexer.skipLineComment "//"
+  Lexer.space (if allowNs then MC.space1 else MC.hspace1) lineComment M.empty
+  where lineComment = Lexer.skipLineComment "//"
 
 symbol :: Char -> Parser ()
 symbol c = M.single c >> spaces
@@ -193,7 +193,7 @@ rep = M.choice
   ]
 
 statementS :: Parser StatementS
-statementS = M.choice [ envSplit, other ]
+statementS = envSplit <|> other
   where
     envSplit = EnvSplit 
       <$> pairing soundList (symbol '>') rep 
@@ -208,24 +208,39 @@ statementS = M.choice [ envSplit, other ]
         , Simple sounds <$> rep <* symbol '/' <*> envList
         ]
 
+someNewlines :: Parser ()
+someNewlines = void (M.some (symbol '\n' <|> symbol '\r')) -- for w*ndows users
+
 changeS :: Parser ChangeS
-changeS = NE.sepBy1 statementS (allowNewlines (symbol '\n'))
+changeS = ChangeS <$> NE.sepEndBy1 statementS someNewlines
 
-parseChange :: Parser ChangeS
-parseChange = do
-  allowNewlines spaces 
-  c <- changeS 
-  allowNewlines spaces 
-  M.eof
-  return c
+bulletedChangeS :: Parser ChangeS
+bulletedChangeS = ChangeS <$ symbol '*' <*> NE.sepBy1 statementS someNewlines
 
-parseChanges :: Parser (NonEmpty ChangeS)
-parseChanges = do
-  allowNewlines spaces
-  cs <- NE.sepBy1 (symbol '*' >> changeS) (allowNewlines (symbol '\n'))
-  allowNewlines spaces
-  M.eof
-  return cs
+total :: Parser a -> Parser a
+total p = allowNewlines spaces >> (p <* M.eof)
+
+ch :: QuasiQuoter
+ch = QuasiQuoter 
+  { quoteExp = makeQuoter chParser (varE 'convertChangeS)
+  , quotePat = undefined 
+  , quoteType = undefined
+  , quoteDec = undefined 
+  }
+  where 
+    chParser :: Parser ChangeS
+    chParser = total changeS
+
+chs :: QuasiQuoter
+chs = QuasiQuoter 
+  { quoteExp = makeQuoter chsParser (appE (varE 'map) (varE 'convertChangeS))
+  , quotePat = undefined 
+  , quoteType = undefined
+  , quoteDec = undefined 
+  }
+  where 
+    chsParser :: Parser [ChangeS]
+    chsParser = total (M.sepEndBy1 bulletedChangeS someNewlines)
 
 initialState :: s -> M.SourcePos -> M.State s Void
 initialState input position =
@@ -242,22 +257,6 @@ initialState input position =
           }
     , M.stateParseErrors = []
     }
-
-ch :: QuasiQuoter
-ch = QuasiQuoter 
-  { quoteExp = makeQuoter parseChange (varE 'convertChangeS)
-  , quotePat = undefined 
-  , quoteType = undefined
-  , quoteDec = undefined 
-  }
-
-chs :: QuasiQuoter
-chs = QuasiQuoter 
-  { quoteExp = makeQuoter parseChanges (appE (varE 'map) (varE 'convertChangeS))
-  , quotePat = undefined 
-  , quoteType = undefined
-  , quoteDec = undefined 
-  }
 
 makeQuoter :: (Data a) => Parser a -> TH.ExpQ -> String -> TH.ExpQ
 makeQuoter parse convert input = do
@@ -332,4 +331,4 @@ convertStatementS = \case
         soundPairs
 
 convertChangeS :: ChangeS -> Change Char
-convertChangeS stmts = Change (Map.fromListWith (++) (concatMap convertStatementS stmts))
+convertChangeS (ChangeS stmts) = Change (Map.fromListWith (++) (concatMap convertStatementS stmts))
