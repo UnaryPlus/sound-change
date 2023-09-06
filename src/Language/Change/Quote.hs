@@ -10,7 +10,7 @@ Stability  : experimental
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TupleSections #-}
-module Language.Change.Quote where
+module Language.Change.Quote (ch, chs) where
 
 import Data.Data (Data)
 import Data.Void (Void)
