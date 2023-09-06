@@ -49,7 +49,7 @@ test-suite test
     Language.Change.QuoteSpec
 
   build-depends:
-    base, hspec, sound-change
+    base, hspec, containers, sound-change
 
   build-tool-depends:
     hspec-discover:hspec-discover
