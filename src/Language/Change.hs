@@ -39,7 +39,7 @@ data Pattern a
   | Many (PSet a)     -- ^ Matches zero or more occurences of a 'PSet' member.
 
 -- | An environment in which a phoneme (or in general, a value of type @a@), might occur.
--- An 'Env' is specified by two lists of patterns: the environment before the phoneme (in reverse order), and the environment after.
+-- An 'Env' is specified by two lists of patterns: the environment before the phoneme (ordered from nearest to farthest), and the environment after.
 data Env a = Env [Pattern a] [Pattern a] 
 
 -- | A sound change. 
@@ -69,7 +69,7 @@ testEnv left right (Env psL psR) =
   testPatterns left psL && testPatterns right psR
 
 -- | A helper function used by 'applyChange'.
--- | Similar to 'map', except the first argument returns a list and has access to each element's environment.
+-- Similar to 'map', except the first argument returns a list and has access to each element's environment.
 replace :: ([a] -> a -> [a] -> [b]) -> [a] -> [b]
 replace f = replace' []
   where
@@ -87,7 +87,7 @@ applyChange (Change mapping) =
           Nothing -> [x]
           Just (x', _) -> x'
 
--- | Apply a sequence of sound changes to a word, returning the ultimate result.
+-- | Apply a sequence of sound changes to a word, returning the final result.
 applyChanges :: Ord a => [Change a] -> [a] -> [a]
 applyChanges cs x = foldl' (flip applyChange) x cs
 
@@ -95,3 +95,4 @@ applyChanges cs x = foldl' (flip applyChange) x cs
 -- (The first element of the list is the original word, and the last element is the result after applying all changes.)
 traceChanges :: Ord a => [Change a] -> [a] -> [[a]]
 traceChanges cs x = scanl' (flip applyChange) x cs
+
