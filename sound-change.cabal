@@ -44,9 +44,7 @@ test-suite test
   ghc-options:      -Wall
   main-is:          Spec.hs
 
-  other-modules:
-    Language.ChangeSpec,
-    Language.Change.QuoteSpec
+  other-modules: Language.ChangeSpec
 
   build-depends:
     base, hspec, containers, sound-change
