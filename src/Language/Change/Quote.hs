@@ -14,8 +14,9 @@ module Language.Change.Quote (ch, chs) where
 
 import Data.Data (Data)
 import Data.Void (Void)
-import Data.List.NonEmpty (NonEmpty(..), toList)
+import Data.List.NonEmpty (NonEmpty(..), toList, cons)
 import Data.Char (isAlphaNum, isAsciiUpper, isSpace)
+import Data.Bifunctor (first)
 import Control.Monad (void)
 
 import qualified Data.Map as Map
@@ -214,34 +215,51 @@ someNewlines = void (M.some (symbol '\n' <|> symbol '\r')) -- for w*ndows users
 changeS :: Parser ChangeS
 changeS = ChangeS <$> NE.sepEndBy1 statementS someNewlines
 
-bulletedChangeS :: Parser ChangeS
-bulletedChangeS = ChangeS <$ symbol '*' <*> NE.sepBy1 statementS someNewlines
+bulletedChanges :: Parser (NonEmpty ChangeS)
+bulletedChanges = do
+  symbol '*'
+  stmt <- statementS
+  newline <- M.option False (True <$ someNewlines)
+  if newline 
+    then M.choice 
+      [ (ChangeS (stmt :| []) `cons`) <$> bulletedChanges
+      , (\(stmts, cs) -> ChangeS (stmt `cons` stmts) :| cs) <$> nonBulleted
+      , return (ChangeS (stmt :| []) :| [])
+      ]
+    else return (ChangeS (stmt :| []) :| [])
+
+  where
+    nonBulleted :: Parser (NonEmpty StatementS, [ChangeS])
+    nonBulleted = do
+      stmt <- statementS
+      newline <- M.option False (True <$ someNewlines)
+      if newline
+        then M.choice
+          [ (\cs -> (stmt :| [], toList cs)) <$> bulletedChanges
+          , first (stmt `cons`) <$> nonBulleted
+          , return (stmt :| [], [])
+          ]
+        else return (stmt :| [], [])
 
 total :: Parser a -> Parser a
 total p = allowNewlines spaces >> (p <* M.eof)
 
 ch :: QuasiQuoter
 ch = QuasiQuoter 
-  { quoteExp = makeQuoter chParser (varE 'convertChangeS)
+  { quoteExp = makeQuoter (total changeS) (varE 'convertChangeS)
   , quotePat = undefined 
   , quoteType = undefined
   , quoteDec = undefined 
   }
-  where 
-    chParser :: Parser ChangeS
-    chParser = total changeS
 
 chs :: QuasiQuoter
 chs = QuasiQuoter 
-  { quoteExp = makeQuoter chsParser (appE (varE 'map) (varE 'convertChangeS))
+  { quoteExp = makeQuoter (toList <$> total bulletedChanges) (appE (varE 'map) (varE 'convertChangeS))
   , quotePat = undefined 
   , quoteType = undefined
   , quoteDec = undefined 
   }
-  where 
-    chsParser :: Parser [ChangeS]
-    chsParser = total (M.sepEndBy1 bulletedChangeS someNewlines)
-
+  
 initialState :: s -> M.SourcePos -> M.State s Void
 initialState input position =
   M.State
