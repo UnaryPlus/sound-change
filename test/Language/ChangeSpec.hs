@@ -115,6 +115,13 @@ spec = do
         |]
       applyChange change1 "atanpa" `shouldBe` "adampa"
       applyChange change1 "tapeŋbak" `shouldBe` "tabembak"
+    
+    it "parses environments in the correct order" do
+      let change1 = [ch| 
+        t > to / arc_ic
+        c > dea / cti_
+        |]
+      applyChange change1 "arctic" `shouldBe` "arctoidea"
   
   describe "Language.Change.applyChanges, Language.Change.Quote.chs" do
     it "applies a sequence of changes (1)" do
