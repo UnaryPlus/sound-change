@@ -9,10 +9,14 @@ Stability  : experimental
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BlockArguments #-}
 module Language.Change
-  ( PSet(..), member
-  , Pattern(..), Env(..), Change(..)
-  , testPatterns, testEnv, replace
-  , applyChange, applyChanges, traceChanges
+  ( -- * Phoneme sets
+    PSet(..), member
+    -- * Environments
+  , Pattern(..), Env(..)
+  , testPatterns, testEnv
+    -- * Sound changes
+  , Change(..)
+  , applyChange, applyChanges, traceChanges, replace
   ) where
 
 import qualified Data.Set as Set
@@ -23,6 +27,7 @@ import Data.List (find, foldl', scanl')
 
 -- | A finite set, or the complement of a finite set.
 data PSet a = PSet (Set a) Bool
+  deriving (Show)
 
 -- | Test for membership in a 'PSet'.
 --
@@ -37,13 +42,16 @@ data Pattern a
   = One (PSet a)      -- ^ Matches one occurrence of a 'PSet' member.
   | Optional (PSet a) -- ^ Matches zero or one occurences of a 'PSet' member.
   | Many (PSet a)     -- ^ Matches zero or more occurences of a 'PSet' member.
+  deriving (Show)
 
 -- | An environment in which a phoneme (or in general, a value of type @a@), might occur.
 -- An 'Env' is specified by two lists of patterns: the environment before the phoneme (ordered from nearest to farthest), and the environment after.
 data Env a = Env [Pattern a] [Pattern a] 
+  deriving (Show)
 
--- | A sound change. 
+-- | A sound change.
 newtype Change a = Change (Map a [([a], Env a)])
+  deriving (Show)
 
 -- | Match a list of phonemes against a list of patterns.
 testPatterns :: Ord a => [a] -> [Pattern a] -> Bool
