@@ -16,6 +16,8 @@ import Language.Change
 
 import Language.Change.Quote (ch, chs)
 
+import Debug.Trace
+
 spec :: Spec
 spec = do
   describe "Language.Change.member" do
@@ -75,6 +77,7 @@ spec = do
       replace f [ 1, 3, 5, 4, 2 :: Int ] `shouldBe` [ 16, 13, 7, 23, 13, 13 ]
 
   let setV = "aeiou"
+  let setN = "mnŋ"
 
   describe "Language.Change.applyChange, Language.Change.Quote.ch" do
     it "applies simple changes" do
@@ -116,12 +119,29 @@ spec = do
       applyChange change1 "atanpa" `shouldBe` "adampa"
       applyChange change1 "tapeŋbak" `shouldBe` "tabembak"
     
+    it "allows antiquotes before >" do
+      let change1 = [ch| N > { m / _{mpb}; n / _{ntd}; ŋ / _{ŋkg} } |]
+      applyChange change1 "anpa" `shouldBe` "ampa"
+      applyChange change1 "aŋtim" `shouldBe` "antim"
+    
     it "parses environments in the correct order" do
       let change1 = [ch| 
         t > to / arc_ic
         c > dea / cti_
         |]
       applyChange change1 "arctic" `shouldBe` "arctoidea"
+    
+    it "works for the example in the documentation" do
+      let change1 = [ch|
+        V > % / s_{ptk}              -- comment  
+        { o > ø; u > y } / _V!*{ji}
+        y > i / _                   
+        |]
+
+      traceShowM change1
+      applyChange change1 "uni" `shouldBe` "yni"
+      applyChange change1 "yni" `shouldBe` "ini"
+      applyChange change1 "esoki" `shouldBe` "eski"
   
   describe "Language.Change.applyChanges, Language.Change.Quote.chs" do
     it "applies a sequence of changes (1)" do

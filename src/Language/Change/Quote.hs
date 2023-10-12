@@ -37,48 +37,7 @@ import Language.Haskell.TH.Lib (appE, conE, varE)
 import Data.Generics.Aliases (extQ)
 import Language.Change (Change(..), Env(..), PSet(..), Pattern(..))
 
-{-
-ENVIRONMENTS
-set1c1set2c2_set3c3set4c4
-set = unit | {unitunitunit}
-unit = single phoneme | antiquote
-c = optional ! followed by optional ? or *
-
-SIMPLE CHANGES
-p1, p2 > s / env1, env2 
-
-PHONEME SPLITTING
-p1, p2 > { s1 / env1; s2 / env2, env3 }
-
-ENVIRONMENT SPLITTING
-{ p1 > s1; p2, p3 > s2 } / env1, env2
-
-EMPTY STRING
-use % for the empty replacement
-
-ANTIQUOTING CHARSETS
-capital letter, or sequence of identifier characters (alphanumeric, _, ') in square brackets [ ]
-can occur in phoneme lists, or in environments
-
-NEWLINES
-newlines are required between statements
-within statements, they are allowed anywhere within { }
-
-SPACES
-spaces are allowed anywhere, except in replacements and antiquoted identifiers
-
-ALLOWED PHONEMES
-everything except whitespace, capital letters, and reserved symbols (, > / ; { } [ ] % _ ! ? *) 
-in particular, you can use # for word boundaries, : for long vowels, etc.
-(these are treated just like any phoneme)
-
-COMMENTS
-line comments begin with // 
-
-MULTIPLE STATEMENTS
-no restrictions on which types of statements can occur together
-but note that in case of conflicting cases (same phoneme, multiple matching environments) the first rule will be applied
--}
+-- TODO: fix comment parsing
 
 data CharS
   = Lit Char
@@ -210,7 +169,7 @@ statementS = envSplit <|> other
         ]
 
 someNewlines :: Parser ()
-someNewlines = void (M.some (symbol '\n' <|> symbol '\r')) -- for w*ndows users
+someNewlines = void (M.some (symbol '\n' <|> symbol '\r'))
 
 changeS :: Parser ChangeS
 changeS = ChangeS <$> NE.sepEndBy1 statementS someNewlines
@@ -244,6 +203,45 @@ bulletedChanges = do
 total :: Parser a -> Parser a
 total p = allowNewlines spaces >> (p <* M.eof)
 
+{-|
+Compiles a sound change specification into a value of type 'Change' 'Char'.
+
+Example:
+
+@
+setV = "aeiou"
+
+change1 = [ch|
+  m, n, ŋ > { m / _{mpb}; n / _{ntd}; ŋ / _{ŋkg} }
+  { p > b; t > d; k > g } / V_V
+  |]
+@
+
+The sound change in this example consists of two \"statements\" separated by newlines. The first statement says 
+\"m, n, and ŋ become \/m\/ when followed by m, p, or b, \/n\/ when followed by n, t, or d, and \/ŋ\/ when followed by ŋ, k, or g.\"
+The second statement says that voiceless stops (p, t, and k) become voiced when between two vowels. The uppercase \"V\" here is a
+shorthand for \"any element of setV.\" 
+
+All uppercase letters are interpreted in this way, which means they are not allowed as phonemes. 
+Whitespace characters, as well as the following symbols (@, > / ; { } [ ] % _ ! ? *@) are also not allowed as phonemes. 
+All other unicode characters are allowed. (For example, you can use # as a \"phoneme\" representing the start or end of a word.)
+ 
+Here's another example:
+
+@
+setV = "aeiou"
+
+change2 = [ch|
+  V > % / s_{ptk}             -- (add comments)
+  { o > ø; u > y } / _V!*{ji}
+  y > i / _
+|]
+@
+
+This change consists of three statements: 
+
+-}
+
 ch :: QuasiQuoter
 ch = QuasiQuoter 
   { quoteExp = makeQuoter (total changeS) (varE 'convertChangeS)
@@ -251,6 +249,49 @@ ch = QuasiQuoter
   , quoteType = undefined
   , quoteDec = undefined 
   }
+
+{-
+ENVIRONMENTS
+set1c1set2c2_set3c3set4c4
+set = unit | {unitunitunit}
+unit = single phoneme | antiquote
+c = optional ! followed by optional ? or *
+
+SIMPLE CHANGES
+p1, p2 > s / env1, env2 
+
+PHONEME SPLITTING
+p1, p2 > { s1 / env1; s2 / env2, env3 }
+
+ENVIRONMENT SPLITTING
+{ p1 > s1; p2, p3 > s2 } / env1, env2
+
+EMPTY STRING
+use % for the empty replacement
+
+ANTIQUOTING CHARSETS
+capital letter, or sequence of identifier characters (alphanumeric, _, ') in square brackets [ ]
+can occur in phoneme lists, or in environments
+
+NEWLINES
+newlines are required between statements
+within statements, they are allowed anywhere within { }
+
+SPACES
+spaces are allowed anywhere, except in replacements and antiquoted identifiers
+
+ALLOWED PHONEMES
+everything except whitespace, capital letters, and reserved symbols (, > / ; { } [ ] % _ ! ? *) 
+in particular, you can use # for word boundaries, : for long vowels, etc.
+(these are treated just like any phoneme)
+
+COMMENTS
+line comments begin with // 
+
+MULTIPLE STATEMENTS
+no restrictions on which types of statements can occur together
+but note that in case of conflicting cases (same phoneme, multiple matching environments) the first rule will be applied
+-}
 
 chs :: QuasiQuoter
 chs = QuasiQuoter 
@@ -349,4 +390,4 @@ convertStatementS = \case
         soundPairs
 
 convertChangeS :: ChangeS -> Change Char
-convertChangeS (ChangeS stmts) = Change (Map.fromListWith (++) (concatMap convertStatementS stmts))
+convertChangeS (ChangeS stmts) = Change (Map.fromListWith (flip (++)) (concatMap convertStatementS stmts))
