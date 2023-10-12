@@ -133,9 +133,9 @@ spec = do
     
     it "works for the example in the documentation" do
       let change1 = [ch|
-        V > % / s_{ptk}              -- comment  
-        { o > ø; u > y } / _V!*{ji}
-        y > i / _                   
+        V > % / s_{ptk}             // vowel loss after /s/ before stops
+        { o > ø; u > y } / _V!*{ji} // umlaut before /j/ and /i/ (with optional consonants in between) 
+        y > i / _                   // unconditional shift               
         |]
 
       traceShowM change1
