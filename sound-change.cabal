@@ -4,10 +4,33 @@ version:            0.1.0.0
 author:             Owen Bechtel
 maintainer:         ombspring@gmail.com
 
--- category: 
--- synopsis: 
+category:           Language, Linguistics
+synopsis:           Apply sound changes to words
 
--- description: 
+description:        
+  Example usage:
+  .
+  @
+  {-# LANGUAGE QuasiQuotes #-}
+  import Language.Change (Change, applyChanges)
+  import Language.Change.Quote
+  .
+  setV = "aeiou"
+  .
+  changes :: [Change Char]
+  changes = [chs|
+  &#x20; * { k > tʃ; g > dʒ } / _i
+  &#x20; * i > e / _i
+  &#x20;   u > o / _u
+  &#x20; * { p > b; t > d } / V_{Vlr}
+  &#x20; * a > e / _V!*i
+  &#x20; |]
+  .
+  results = map (applyChanges changes) [ "kiis", "kapir", "atri" ]
+  \-- [ "tʃeis", "kebir", "edri" ]
+  @
+  .
+  See the module documentation for more information.
 
 homepage:           https://github.com/UnaryPlus/sound-change
 bug-reports:        https://github.com/UnaryPlus/sound-change/issues
