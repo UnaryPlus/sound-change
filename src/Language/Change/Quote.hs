@@ -35,6 +35,7 @@ import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote(QuasiQuoter(..), dataToExpQ)
 import Language.Haskell.TH.Lib (appE, conE, varE)
 import Data.Generics.Aliases (extQ)
+
 import Language.Change (Change(..), Env(..), PSet(..), Pattern(..), applyChanges)
 
 data CharS
