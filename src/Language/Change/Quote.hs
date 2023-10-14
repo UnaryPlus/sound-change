@@ -35,9 +35,7 @@ import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote(QuasiQuoter(..), dataToExpQ)
 import Language.Haskell.TH.Lib (appE, conE, varE)
 import Data.Generics.Aliases (extQ)
-import Language.Change (Change(..), Env(..), PSet(..), Pattern(..))
-
--- TODO: fix comment parsing
+import Language.Change (Change(..), Env(..), PSet(..), Pattern(..), applyChanges)
 
 data CharS
   = Lit Char
@@ -204,7 +202,7 @@ total :: Parser a -> Parser a
 total p = allowNewlines spaces >> (p <* M.eof)
 
 {-|
-Compiles a sound change specification into a value of type 'Change' 'Char'.
+Compile a sound change specification into a value of type 'Change' 'Char'.
 
 Example:
 
@@ -212,34 +210,69 @@ Example:
 setV = "aeiou"
 
 change1 = [ch|
-  m, n, ŋ > { m / _{mpb}; n / _{ntd}; ŋ / _{ŋkg} }
-  { p > b; t > d; k > g } / V_V
+  m, n, ŋ > { m \/ _{mpb}; n \/ _{ntd}; ŋ \/ _{ŋkg} }
+  { p > b; t > d; k > g } \/ V_V
   |]
 @
 
-The sound change in this example consists of two \"statements\" separated by newlines. The first statement says 
+The sound change in this example consists of two statements separated by a newline. The first statement says 
 \"m, n, and ŋ become \/m\/ when followed by m, p, or b, \/n\/ when followed by n, t, or d, and \/ŋ\/ when followed by ŋ, k, or g.\"
-The second statement says that voiceless stops (p, t, and k) become voiced when between two vowels. The uppercase \"V\" here is a
-shorthand for \"any element of setV.\" 
+The second statement says that voiceless stops (p, t, and k) become voiced when between two vowels. The uppercase @V@ here is
+shorthand for \"any element of @setV@.\" 
 
 All uppercase letters are interpreted in this way, which means they are not allowed as phonemes. 
-Whitespace characters, as well as the following symbols (@, > / ; { } [ ] % _ ! ? *@) are also not allowed as phonemes. 
-All other unicode characters are allowed. (For example, you can use # as a \"phoneme\" representing the start or end of a word.)
+Whitespace characters, as well as the following symbols ( @,>\/;{}[]%_!?*@ ) are also not allowed as phonemes. 
+All other unicode characters are allowed. (For example, you can use @#@ as a \"phoneme\" representing the start or end of a word.)
  
 Here's another example:
 
 @
-setV = "aeiou"
-
 change2 = [ch|
-  V > % / s_{ptk}             -- (add comments)
-  { o > ø; u > y } / _V!*{ji}
-  y > i / _
-|]
+  V > % \/ s_{ptk}             \/\/ vowel loss after \/s\/ before stops
+  { o > ø; u > y } \/ _V!*{ji} \/\/ umlaut before \/j\/ and \/i\/ (with optional consonants in between) 
+  y > i \/ _                   \/\/ unconditional shift
+ |]
 @
 
-This change consists of three statements: 
+This example illustrates several features:
 
+* You can create line comments with @\/\/@. 
+
+* The left side of @>@ need not be a single phoneme; it can also be a set of phonemes (in this case @V@).
+
+* The symbol @%@ represents the empty string.
+
+* Certain suffixes can be added to phonemes and phoneme-sets to create more complex patterns:
+
+    * @X!@ matches anything /not/ in the set @X@.
+
+    * @X*@ matches zero or more elements of @X@.
+
+    * @X?@ matches zero or one elements of @X@.
+
+    * There are also the combinations @X!*@ and @X!?@.
+
+* To create an unconditional sound change, use the empty environment @_@.
+
+* The statements in a sound change are applied in a single traversal.
+This means that the same phoneme cannot be affected by more than one statement.
+For example, the change above would convert \"yni\" into \"ini,\" and \"uni\" into \"yni.\"
+(If you want to sequence multiple changes, use 'chs'.)
+
+* If multiple statements are applicable to the same phoneme, the first one is applied.
+For example, the change above would convert \"soki\" into \"ski\", not \"søki.\"
+
+Other noteworthy things:
+
+* As mentioned above, capital letters refer to sets of characters: @V@ refers to @setV@, @N@ refers to @setN@, and so on.
+To refer to sets with longer names, you can use square brackets; 
+for example, if you define @setNasal :: [Char]@, you can refer to it with @[Nasal]@.
+
+* It is possible to have multiple conditions in a single statement. For example, @e > i / _a, a_@ means \"\/e\/ becomes \/i\/ when before \/a\/ /or/ after \/a\/.\" 
+
+* The parser is whitespace-sensitive. Horizontal space characters can go almost anywhere, 
+but newlines are only allowed between statements (where they are required)
+and inside of @{}@ blocks.
 -}
 
 ch :: QuasiQuoter
@@ -250,47 +283,21 @@ ch = QuasiQuoter
   , quoteDec = undefined 
   }
 
-{-
-ENVIRONMENTS
-set1c1set2c2_set3c3set4c4
-set = unit | {unitunitunit}
-unit = single phoneme | antiquote
-c = optional ! followed by optional ? or *
+{-|
+Compile a sequence of sound changes into a value of type @['Change' 'Char']@.
+Each change is preceded by a bullet @*@. For example:
 
-SIMPLE CHANGES
-p1, p2 > s / env1, env2 
+@
+changes = [chs|
+  * p > f \/ _{tk}
+    t > θ \/ _{pk}
+    k > x \/ _{pt} \/\/ these three statements are applied in a single traversal
+  * x > ç \/ i_    \/\/ this statement is applied after the ones before it
+  * i > j \/ _V
+  |]
+@
 
-PHONEME SPLITTING
-p1, p2 > { s1 / env1; s2 / env2, env3 }
-
-ENVIRONMENT SPLITTING
-{ p1 > s1; p2, p3 > s2 } / env1, env2
-
-EMPTY STRING
-use % for the empty replacement
-
-ANTIQUOTING CHARSETS
-capital letter, or sequence of identifier characters (alphanumeric, _, ') in square brackets [ ]
-can occur in phoneme lists, or in environments
-
-NEWLINES
-newlines are required between statements
-within statements, they are allowed anywhere within { }
-
-SPACES
-spaces are allowed anywhere, except in replacements and antiquoted identifiers
-
-ALLOWED PHONEMES
-everything except whitespace, capital letters, and reserved symbols (, > / ; { } [ ] % _ ! ? *) 
-in particular, you can use # for word boundaries, : for long vowels, etc.
-(these are treated just like any phoneme)
-
-COMMENTS
-line comments begin with // 
-
-MULTIPLE STATEMENTS
-no restrictions on which types of statements can occur together
-but note that in case of conflicting cases (same phoneme, multiple matching environments) the first rule will be applied
+For example, @'applyChanges' changes "ikt"@ would return @"içt"@.
 -}
 
 chs :: QuasiQuoter
