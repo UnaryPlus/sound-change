@@ -52,13 +52,13 @@ library
     Language.Change.Quote
 
   build-depends:
-    base,
-    containers,
-    syb,
-    template-haskell,
-    megaparsec,
-    parser-combinators,
-    mtl
+    base >= 4.9.0.0 && < 5,
+    containers >= 0.2.0.0 && < 0.8,
+    syb >= 0.1.0.0 && < 0.8,
+    template-haskell >= 2.5.0.0 && < 2.22,
+    megaparsec >= 9.0.0 && < 10,
+    parser-combinators >= 0.4.0 && < 2,
+    mtl >= 1.0 && < 2.4
 
 test-suite test
   type:             exitcode-stdio-1.0
